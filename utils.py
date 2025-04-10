@@ -198,7 +198,7 @@ def plot_average_speed_density(densities: list, results: dict, filename: str = "
     plt.figure(figsize=(10, 5))
     for p, speeds in results.items():
         plt.plot(densities, speeds, label=f"p = {p}")
-    plt.xlabel("Плотность (машин/км)")
+    plt.xlabel("Плотность потока (машин/км)")
     plt.ylabel("Средняя скорость (км/ч)")
     plt.title("Средняя скорость при разных плотностях и вероятностях торможения")
     plt.legend()
@@ -234,19 +234,30 @@ def visualize_jams(road, filename: str = "jams_2D.png", show: bool = True):
     plt.close()
 
 
-def compare_effect(densities, avg_speeds_with, avg_speeds_without, labels: list, filename: str, show: bool = True):
+def compare_effect(densities, avg_speeds_with, avg_speeds_without, 
+                   labels: list, filename: str, show: bool = True,
+                   extra_info: dict = None):
     plt.figure(figsize=(10, 5))
     plt.plot(densities, avg_speeds_with, label=labels[0], marker='o')
     plt.plot(densities, avg_speeds_without, label=labels[1], marker='x')
-    plt.xlabel("Плотность (машин/км)")
+    plt.xlabel("Плотность потока (машин/км)")
     plt.ylabel("Средняя скорость (км/ч)")
     plt.title(labels[2])
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
+    
+    if extra_info: add_extra_info(extra_info)
 
     if filename:
         plt.savefig(os.path.join(save_dir, filename))
     if show:
         plt.show()
     plt.close()
+
+
+def add_extra_info(extra_info: dict):
+    text_lines = [f"{k}: {v}" for k, v in extra_info.items()]
+    info_text = "\n".join(text_lines)
+    plt.gcf().text(1, -0.05, info_text, fontsize=10, bbox=dict(facecolor='white', alpha=0.7))
+    

@@ -9,6 +9,7 @@ class Car:
         self.position = position
         self.speed = speed
         self.vmax = vmax
+        self.last_lane_change = -100  # шаг последнего перестроения
 
     def accelerate(self):
         self.speed = min(self.speed + 1, self.vmax)
@@ -30,6 +31,7 @@ class Road2D:
         self.length = road_length  # в ячейках
         self.cell_length = cell_length  # длина одной ячейки в метрах
         self.lanes = lanes
+        self.time_step = 0
         self.vmax = vmax
         self.p = p
         self.allow_lane_change = allow_lane_change
@@ -61,7 +63,10 @@ class Road2D:
         # Попытка перестроения
         if self.allow_lane_change:
             for car in self.cars:
-                self.attempt_lane_change(car)
+                if self.time_step - car.last_lane_change > 5:  # 5 шагов между сменами полос
+                    self.attempt_lane_change(car)
+        
+        self.time_step += 1
 
         for car in self.cars:
             car.accelerate()
@@ -105,22 +110,24 @@ class Road2D:
 
     def attempt_lane_change(self, car: Car):
         distance_current = self.distance_to_next_car(car)
-
+    
         best_lane = car.lane
         best_distance = distance_current
-
+    
         for direction in [-1, 1]:
             new_lane = car.lane + direction
             if 0 <= new_lane < self.lanes and self.can_change_lane(car, direction):
                 temp_car = Car(new_lane, car.position, car.speed, car.vmax)
                 distance_new = self.distance_to_next_car(temp_car)
-                if distance_new > best_distance:
+    
+                if distance_new > best_distance + 2:
                     best_distance = distance_new
                     best_lane = new_lane
-
+    
         # Перестроение, если выгодно
-        if best_lane != car.lane:
+        if best_lane != car.lane and random.random() < 0.7:
             car.lane = best_lane
+            car.last_lane_change = self.time_step
 
     def is_red_light_ahead(self, car: Car) -> int | None:
         for light in self.traffic_lights:
@@ -177,9 +184,12 @@ light_cycle = [30, 30]
 road_gif_1 = Road2D(road_length, num_cars, lanes, vmax, p)
 create_gif(road_gif_1, filename='traffic_simulation_without_traffic_lights_2D.gif', frames=steps)
 
+road_gif_2 = Road2D(road_length, num_cars, lanes=4, vmax=vmax, p=p)
+create_gif(road_gif_2, filename='traffic_simulation_without_traffic_lights_4-lanes_2D.gif', frames=steps)
+
 traffic_lights_gif = [TrafficLight(traffic_light_position, light_cycle)]
-road_gif_2 = Road2D(road_length, num_cars, lanes, vmax, p, traffic_lights=traffic_lights_gif)
-create_gif(road_gif_2, filename='traffic_simulation_with_traffic_lights_2D.gif', frames=steps)
+road_gif_3 = Road2D(road_length, num_cars, lanes, vmax, p, traffic_lights=traffic_lights_gif)
+create_gif(road_gif_3, filename='traffic_simulation_with_traffic_lights_2D.gif', frames=steps)
 
 
 traffic_lights_visualize = [TrafficLight(traffic_light_position, light_cycle)]
@@ -224,9 +234,17 @@ for density in densities:
     road_without_lane_changing = Road2D(road_length, num_cars, lanes, vmax, p, allow_lane_change=False)
     avg_speed = np.mean([road_without_lane_changing.update() or road_without_lane_changing.get_average_speed_kmh() for _ in range(steps)])
     avg_speeds_without.append(avg_speed)
+    
+vmax_kmh = int(vmax * cell_length * 3.6)
+road_length_km = int(road_length * cell_length / 1000)
+extra_info={
+    "Макс. скорость": f"{vmax_kmh} км/ч",
+    "Длина дороги": f"{road_length_km} км",
+    }
 
 labels_lane_changing = ['С перестроением', 'Без перестроения', "Сравнение трафика с возможностью перестроения и без"]
-compare_effect(densities, avg_speeds_with, avg_speeds_without, labels_lane_changing, "compare_lane_changing_2D.png")
+compare_effect(densities, avg_speeds_with, avg_speeds_without, labels_lane_changing, 
+               "compare_lane_changing_2D.png", extra_info=extra_info)
 
 
 # Сравнение с и без светофора (но с перестроением)
@@ -246,4 +264,6 @@ for density in densities:
     avg_speeds_without_light.append(avg_speed)
 
 labels_traffic_light = ['С светофором', 'Без светофора', "Сравнение трафика с светофором и без"]
-compare_effect(densities, avg_speeds_with_light, avg_speeds_without_light, labels_traffic_light, "compare_with_wthout_traffic_lights_2D.png")
+compare_effect(densities, avg_speeds_with_light, avg_speeds_without_light, 
+               labels_traffic_light, "compare_with_wthout_traffic_lights_2D.png",
+               extra_info=extra_info)
