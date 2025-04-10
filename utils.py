@@ -198,12 +198,12 @@ def plot_average_speed_density(densities: list, results: dict, filename: str = "
     plt.figure(figsize=(10, 5))
     for p, speeds in results.items():
         plt.plot(densities, speeds, label=f"p = {p}")
-    plt.xlabel("Плотность потока (кол-во машин на ячейку)")
-    plt.ylabel("Средняя скорость")
-    plt.title("Сравнение трафика при разных p")
+    plt.xlabel("Плотность (машин/км)")
+    plt.ylabel("Средняя скорость (км/ч)")
+    plt.title("Средняя скорость при разных плотностях и вероятностях торможения")
     plt.legend()
     plt.grid(True)
-    
+
     if filename:
         plt.savefig(os.path.join(save_dir, filename))
     if show:
@@ -238,13 +238,13 @@ def compare_effect(densities, avg_speeds_with, avg_speeds_without, labels: list,
     plt.figure(figsize=(10, 5))
     plt.plot(densities, avg_speeds_with, label=labels[0], marker='o')
     plt.plot(densities, avg_speeds_without, label=labels[1], marker='x')
-    plt.xlabel("Плотность потока (кол-во машин на ячейку)")
-    plt.ylabel("Средняя скорость")
+    plt.xlabel("Плотность (машин/км)")
+    plt.ylabel("Средняя скорость (км/ч)")
     plt.title(labels[2])
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    
+
     if filename:
         plt.savefig(os.path.join(save_dir, filename))
     if show:

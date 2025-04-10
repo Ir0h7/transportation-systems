@@ -4,7 +4,7 @@ from utils import draw_road_state, create_gif, plot_average_speed_density, compa
         
 
 class Car:
-    def __init__(self, lane: int, position: int, speed: int = 0, vmax: int = 60):
+    def __init__(self, lane: int, position: int, speed: int = 0, vmax: int = 4):
         self.lane = lane
         self.position = position
         self.speed = speed
@@ -25,9 +25,10 @@ class Car:
 
 
 class Road2D:
-    def __init__(self, road_length: int, num_cars: int, lanes: int = 2, vmax: int = 60, p: float = 0.3,
-                 allow_lane_change=True, traffic_lights=None):
-        self.length = road_length
+    def __init__(self, road_length: int, num_cars: int, lanes: int = 2, vmax: int = 4, p: float = 0.3,
+                 allow_lane_change=True, traffic_lights=None, cell_length: float = 7.5):
+        self.length = road_length  # в ячейках
+        self.cell_length = cell_length  # длина одной ячейки в метрах
         self.lanes = lanes
         self.vmax = vmax
         self.p = p
@@ -130,6 +131,15 @@ class Road2D:
             if light.state == 'red':
                 return distance
         return None
+    
+    def get_average_speed_kmh(self) -> float:
+        avg_speed_cells = self.get_average_speed()
+        meters_per_step = avg_speed_cells * self.cell_length
+        return meters_per_step * 3.6  # м/с -> км/ч
+
+    def get_density_per_km(self) -> float:
+        total_road_m = self.length * self.cell_length
+        return len(self.cars) / (total_road_m / 1000)
 
 
 class TrafficLight:
@@ -156,8 +166,9 @@ steps = 100
 road_length = 300
 num_cars = 20
 lanes = 2
-vmax = 60
+vmax = 4
 p = 0.2
+cell_length = 7.5
 
 traffic_light_position = road_length // 2
 light_cycle = [30, 30]
@@ -179,7 +190,7 @@ for step in range(steps):
     road_visualize.update()
 
 
-densities = np.linspace(0.03, 0.5, 10)
+densities = np.linspace(3, 100, 10)  # плотность в машинах на км
 ps = [0.0, 0.2, 0.5]
 results = {}
 
@@ -187,30 +198,31 @@ results = {}
 for p in ps:
     avg_speeds = []
     for density in densities:
-        sum_speed_per_dens = 0
-        num_cars = int(road_length * density)
+        num_cars = int(density * road_length * cell_length / 1000)
         road_p = Road2D(road_length, num_cars, lanes, vmax, p)
+        total_speed = 0
         for _ in range(steps):
             road_p.update()
-            sum_speed_per_dens += road_p.get_average_speed()
-        avg_speeds.append(sum_speed_per_dens / steps)
+            total_speed += road_p.get_average_speed_kmh()
+        avg_speeds.append(total_speed / steps)
     results[p] = avg_speeds
 
 plot_average_speed_density(densities, results)
+
 
 # Сравнение с и без перестроения (но без светофора)
 avg_speeds_with = []
 avg_speeds_without = []
 
 for density in densities:
-    num_cars = int(road_length * density)
+    num_cars = int(density * road_length * cell_length / 1000)
 
     road_with_lane_changing = Road2D(road_length, num_cars, lanes, vmax, p)
-    avg_speed = np.mean([road_with_lane_changing.update() or road_with_lane_changing.get_average_speed() for _ in range(steps)])
+    avg_speed = np.mean([road_with_lane_changing.update() or road_with_lane_changing.get_average_speed_kmh() for _ in range(steps)])
     avg_speeds_with.append(avg_speed)
 
     road_without_lane_changing = Road2D(road_length, num_cars, lanes, vmax, p, allow_lane_change=False)
-    avg_speed = np.mean([road_without_lane_changing.update() or road_without_lane_changing.get_average_speed() for _ in range(steps)])
+    avg_speed = np.mean([road_without_lane_changing.update() or road_without_lane_changing.get_average_speed_kmh() for _ in range(steps)])
     avg_speeds_without.append(avg_speed)
 
 labels_lane_changing = ['С перестроением', 'Без перестроения', "Сравнение трафика с возможностью перестроения и без"]
@@ -222,15 +234,15 @@ avg_speeds_with_light = []
 avg_speeds_without_light = []
 
 for density in densities:
-    num_cars = int(road_length * density)
+    num_cars = int(density * road_length * cell_length / 1000)
     
     traffic_lights_for_lights = [TrafficLight(traffic_light_position, light_cycle)]
     road_with_traffic_lights = Road2D(road_length, num_cars, lanes, vmax, p, traffic_lights=traffic_lights_for_lights)
-    avg_speed = np.mean([road_with_traffic_lights.update() or road_with_traffic_lights.get_average_speed() for _ in range(steps)])
+    avg_speed = np.mean([road_with_traffic_lights.update() or road_with_traffic_lights.get_average_speed_kmh() for _ in range(steps)])
     avg_speeds_with_light.append(avg_speed)
 
     road_without_traffic_lights = Road2D(road_length, num_cars, lanes, vmax, p)
-    avg_speed = np.mean([road_without_traffic_lights.update() or road_without_traffic_lights.get_average_speed() for _ in range(steps)])
+    avg_speed = np.mean([road_without_traffic_lights.update() or road_without_traffic_lights.get_average_speed_kmh() for _ in range(steps)])
     avg_speeds_without_light.append(avg_speed)
 
 labels_traffic_light = ['С светофором', 'Без светофора', "Сравнение трафика с светофором и без"]
