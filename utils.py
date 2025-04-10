@@ -62,8 +62,8 @@ def plot_heatmap(history: list, filename: str = None, show: bool = True):
     plt.close()
     
 
-def plot_average_speed_density(densities: list, results: dict, filename: str = None, show: bool = True):
-    plt.figure(figsize=(10, 6))
+def plot_average_speed_density(densities: list, results: dict, filename: str = "average_speed_density_2D.png", show: bool = True):
+    plt.figure(figsize=(10, 5))
     for p, speeds in results.items():
         plt.plot(densities, speeds, label=f"p = {p}")
     plt.xlabel("Плотность потока (кол-во машин на ячейку)")
@@ -125,7 +125,7 @@ def create_gif(road, filename='traffic_simulation_2D.gif', frames=20):
         
 
 def plot_average_speed_steps(avg_speeds: list, vmax: int, steps: int, filename: str = None, show: bool = True):
-    plt.figure(figsize=(10, 4))
+    plt.figure(figsize=(10, 5))
     plt.plot(avg_speeds, label='Средняя скорость')
     plt.axhline(y=vmax, color='red', linestyle='--', label='Максимальная скорость')
     plt.xlabel("Шаг")
@@ -140,4 +140,44 @@ def plot_average_speed_steps(avg_speeds: list, vmax: int, steps: int, filename: 
         plt.show()
 
     plt.close()
+
+
+def visualize_jams(road, filename: str = "jams_2D.png", show: bool = True):
+    jam_threshold_speed = 5  # машины со скоростью <= 5 считаются в заторе
+    jam_matrix = np.zeros_like(road.road)
+
+    for car in road.cars:
+        if car.speed <= jam_threshold_speed:
+            jam_matrix[car.lane, car.position] = 1
+
+    plt.figure(figsize=(12, 2))
+    plt.imshow(jam_matrix, cmap="Reds", aspect='auto', interpolation='nearest')
+    plt.title("Карта дорожных пробок (Красный = Пробка)")
+    plt.xlabel("Позиция на дороге")
+    plt.ylabel("Полосы")
+    plt.colorbar(label="Интенсивность пробок")
+    plt.tight_layout()
     
+    if filename:
+        plt.savefig(os.path.join(save_dir, filename))
+    if show:
+        plt.show()
+    plt.close()
+
+
+def compare_lane_changing_effect(densities, avg_speeds_with, avg_speeds_without, filename: str = "compare_lane_changing_2D.png", show: bool = True):
+    plt.figure(figsize=(10, 5))
+    plt.plot(densities, avg_speeds_with, label='С перестроением', marker='o')
+    plt.plot(densities, avg_speeds_without, label='Без перестроения', marker='x')
+    plt.xlabel("Плотность трафика")
+    plt.ylabel("Средняя скорость")
+    plt.title("Сравнение трафика с возможностью перестроения и без")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    
+    if filename:
+        plt.savefig(os.path.join(save_dir, filename))
+    if show:
+        plt.show()
+    plt.close()
