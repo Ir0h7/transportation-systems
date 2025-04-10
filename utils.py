@@ -259,5 +259,5 @@ def compare_effect(densities, avg_speeds_with, avg_speeds_without,
 def add_extra_info(extra_info: dict):
     text_lines = [f"{k}: {v}" for k, v in extra_info.items()]
     info_text = "\n".join(text_lines)
-    plt.gcf().text(1, -0.05, info_text, fontsize=10, bbox=dict(facecolor='white', alpha=0.7))
+    plt.gcf().text(0.79, 0.75, info_text, fontsize=10, bbox=dict(facecolor='white', alpha=0.7))
     
