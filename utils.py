@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import imageio
-from matplotlib.patches import FancyBboxPatch
+from matplotlib.patches import FancyBboxPatch, Patch
 from PIL import Image
 
 
@@ -122,30 +122,32 @@ def plot_average_speed_steps(avg_speeds: list, vmax: int, steps: int, filename: 
     plt.close()"""
 
 
+
 def draw_road_state(road, step: int, filename: str = None):
     road_length = road.length
     lanes = road.lanes
     cars = road.cars
+    lane_directions = getattr(road, "lane_directions", [1] * lanes)
     traffic_lights = getattr(road, "traffic_lights", [])
 
     plt.figure(figsize=(14, lanes))
-
     ax = plt.gca()
     ax.set_xlim(0, road_length)
     ax.set_ylim(0, lanes)
-
     ax.fill_between([0, road_length], 0, lanes, color='gray', alpha=0.3)
 
     for i in range(1, lanes):
         ax.plot([0, road_length], [i] * 2, 'w--', linewidth=1)
 
-    colors = ['blue', 'red', 'green', 'cyan', 'magenta', 'yellow']
+    direction_colors = {1: 'blue', -1: 'orange'}
+    direction_labels = {1: '→', -1: '←'}
 
     car_width = 1
     car_height = 0.35
 
     for car in cars:
-        color = colors[car.lane % len(colors)]
+        direction = lane_directions[car.lane]
+        color = direction_colors.get(direction, 'gray')
         x = car.position - car_width / 2
         y = car.lane + (1 - car_height) / 2
         box = FancyBboxPatch((x, y), car_width, car_height,
@@ -158,6 +160,24 @@ def draw_road_state(road, step: int, filename: str = None):
         for lane in range(lanes):
             ax.plot(light.position, lane + 0.5, 'o', color=light_color,
                     markersize=12, markeredgecolor='black', zorder=5)
+            
+    if any([lane_direction == -1 for lane_direction in lane_directions]):
+        legend_elements = [
+            Patch(facecolor=color, edgecolor='black', label=label)
+            for direction, color in direction_colors.items()
+            for dir_key, label in direction_labels.items()
+            if dir_key == direction
+        ]
+    
+        plt.subplots_adjust(bottom=0.15)
+
+        ax.legend(
+            handles=legend_elements,
+            loc='upper center',
+            bbox_to_anchor=(0.5, -0.08),
+            ncol=len(legend_elements),
+            frameon=False
+        )
 
     plt.title(f'Шаг {step}')
     plt.axis('off')

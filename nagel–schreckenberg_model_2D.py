@@ -21,16 +21,18 @@ class Car:
         if self.speed > 0 and random.random() < p:
             self.speed -= 1
 
-    def move(self, road_length: int):
-        self.position = (self.position + self.speed) % road_length
+    def move(self, road_length: int, direction: int):
+        self.position = (self.position + direction * self.speed) % road_length
 
 
 class Road2D:
     def __init__(self, road_length: int, num_cars: int, lanes: int = 2, vmax: int = 4, p: float = 0.3,
-                 allow_lane_change=True, traffic_lights=None, cell_length: float = 7.5):
+                 allow_lane_change=True, lane_directions: list[int] = None, traffic_lights=None,
+                 cell_length: float = 7.5):
         self.length = road_length  # в ячейках
         self.cell_length = cell_length  # длина одной ячейки в метрах
         self.lanes = lanes
+        self.lane_directions = lane_directions or [1] * lanes
         self.time_step = 0
         self.vmax = vmax
         self.p = p
@@ -49,8 +51,9 @@ class Road2D:
             self.road[lane, pos] = idx
 
     def distance_to_next_car(self, car: Car) -> int:
+        direction = self.lane_directions[car.lane]
         for d in range(1, self.length):
-            idx = (car.position + d) % self.length
+            idx = (car.position + direction * d) % self.length
             if self.road[car.lane, idx] != -1:
                 return d
         return self.length
@@ -83,7 +86,7 @@ class Road2D:
         # Обновляем позиции машин
         self.road.fill(-1)
         for idx, car in enumerate(self.cars):
-            car.move(self.length)
+            car.move(self.length, self.lane_directions[car.lane])
             self.road[car.lane, car.position] = idx
 
     def get_car_positions(self):
@@ -97,6 +100,10 @@ class Road2D:
 
     def can_change_lane(self, car: Car, direction: int) -> bool:
         new_lane = car.lane + direction
+        
+        if self.lane_directions[car.lane] != self.lane_directions[new_lane]:
+            return False
+
         if not (0 <= new_lane < self.lanes):
             return False
 
@@ -173,6 +180,7 @@ steps = 100
 road_length = 300
 num_cars = 20
 lanes = 2
+lane_directions = [1, 1, -1, -1]
 vmax = 4
 p = 0.2
 cell_length = 7.5
@@ -184,7 +192,7 @@ light_cycle = [30, 30]
 road_gif_1 = Road2D(road_length, num_cars, lanes, vmax, p)
 create_gif(road_gif_1, filename='traffic_simulation_without_traffic_lights_2D.gif', frames=steps)
 
-road_gif_2 = Road2D(road_length, num_cars, lanes=4, vmax=vmax, p=p)
+road_gif_2 = Road2D(road_length, num_cars, lanes=4, vmax=vmax, p=p, lane_directions=lane_directions)
 create_gif(road_gif_2, filename='traffic_simulation_without_traffic_lights_4-lanes_2D.gif', frames=steps)
 
 traffic_lights_gif = [TrafficLight(traffic_light_position, light_cycle)]
