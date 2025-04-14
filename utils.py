@@ -4,6 +4,8 @@ import os
 import imageio
 from matplotlib.patches import FancyBboxPatch, Patch
 from PIL import Image
+import osmnx as ox
+import networkx as nx
 
 
 save_dir = "images"
@@ -64,7 +66,11 @@ def plot_heatmap(history: list, filename: str = None, show: bool = True):
     plt.close()
 
 
-def plot_average_speed_steps(avg_speeds: list, vmax: int, steps: int, filename: str = None, show: bool = True):
+def plot_average_speed_steps(avg_speeds: list, 
+                             vmax: int, 
+                             steps: int, 
+                             filename: str = None, 
+                             show: bool = True):
     plt.figure(figsize=(10, 5))
     plt.plot(avg_speeds, label='Средняя скорость')
     plt.axhline(y=vmax, color='red', linestyle='--', label='Максимальная скорость')
@@ -214,7 +220,10 @@ def create_gif(road, filename='traffic_simulation_2D.gif', frames=20):
     for f in frame_files:
         os.remove(f)
 
-def plot_average_speed_density(densities: list, results: dict, filename: str = "average_speed_density_2D.png", show: bool = True):
+def plot_average_speed_density(densities: list, 
+                               results: dict, 
+                               filename: str = "average_speed_density_2D.png", 
+                               show: bool = True):
     plt.figure(figsize=(10, 5))
     for p, speeds in results.items():
         plt.plot(densities, speeds, label=f"p = {p}")
@@ -254,8 +263,12 @@ def visualize_jams(road, filename: str = "jams_2D.png", show: bool = True):
     plt.close()
 
 
-def compare_effect(densities, avg_speeds_with, avg_speeds_without, 
-                   labels: list, filename: str, show: bool = True,
+def compare_effect(densities, 
+                   avg_speeds_with, 
+                   avg_speeds_without, 
+                   labels: list, 
+                   filename: str, 
+                   show: bool = True,
                    extra_info: dict = None):
     plt.figure(figsize=(10, 5))
     plt.plot(densities, avg_speeds_with, label=labels[0], marker='o')
@@ -280,4 +293,56 @@ def add_extra_info(extra_info: dict):
     text_lines = [f"{k}: {v}" for k, v in extra_info.items()]
     info_text = "\n".join(text_lines)
     plt.gcf().text(0.79, 0.75, info_text, fontsize=10, bbox=dict(facecolor='white', alpha=0.7))
+    
+
+def get_characteristics_of_path_between_coords(coord1, 
+                                               coord2, 
+                                               dist=2000, 
+                                               filename: str="graph.png", 
+                                               show: bool=True):
+    G = ox.graph_from_point(coord1, dist=dist, network_type='drive')
+    ox.plot_graph(G)
+    
+    G = ox.add_edge_speeds(G)
+    G = ox.add_edge_travel_times(G)
+    G = ox.distance.add_edge_lengths(G)
+
+    orig_node = ox.nearest_nodes(G, coord1[1], coord1[0])
+    dest_node = ox.nearest_nodes(G, coord2[1], coord2[0])
+
+    try:
+        route = nx.shortest_path(G, orig_node, dest_node, weight='length')
+    except nx.NetworkXNoPath:
+        raise ValueError("Маршрут не найден.")
+
+    fig, ax = ox.plot_graph_route(
+        G, route,
+        route_color='red',
+        route_linewidth=3,
+        orig_dest_size=40,
+        node_size=5,
+        node_color='grey',
+        edge_color='lightgray',
+        show=False,
+        close=False
+    )
+    
+    if filename:
+        plt.savefig(os.path.join(save_dir, filename))
+    if show:
+        plt.show()
+    plt.close()
+
+
+    # Длина участка, средняя скорость и количество полос
+    route_length = nx.shortest_path_length(G, orig_node, dest_node, weight='length')
+    first_edge = G.get_edge_data(route[0], route[1])[0]
+    speed_limit = first_edge['speed_kph']
+    lanes = int(first_edge['lanes']) if 'lanes' in first_edge else 2
+
+    return G, {
+        'length_m': route_length,
+        'lanes': lanes,
+        'speed_limit_kph': speed_limit
+    }
     

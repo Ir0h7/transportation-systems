@@ -19,8 +19,13 @@
 ![plot](./images/traffic_simulation_without_traffic_lights_2D.gif)
 ![plot](./images/traffic_simulation_without_traffic_lights_4-lanes_2D.gif)
 
-Также я добавил в модель светофор.
+### Также я добавил в модель светофор.
 ![plot](./images/traffic_simulation_with_traffic_lights_2D.gif)
-![plot](./images/compare_lane_changing_2D.png)
-![plot](./images/compare_with_wthout_traffic_lights_2D.png)
+![plot](./images/compare_with_without_lane_changing_2D.png)
+![plot](./images/compare_with_without_traffic_lights_2D.png)
 ![plot](./images/average_speed_density_2D.png)
+
+### Применил модель на реальном участке Каширского шоссе
+![plot](./images/graph.png)
+![plot](./images/compare_with_without_lane_changing_real_2D.png)
+![plot](./images/compare_with_without_traffic_lights_real_2D.png)

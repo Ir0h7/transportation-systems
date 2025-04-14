@@ -1,10 +1,14 @@
 import random
 import numpy as np
-from utils import draw_road_state, create_gif, plot_average_speed_density, compare_effect
-        
+from utils import draw_road_state, create_gif, plot_average_speed_density, compare_effect, \
+                    get_characteristics_of_path_between_coords
+
 
 class Car:
-    def __init__(self, lane: int, position: int, speed: int = 0, vmax: int = 4):
+    def __init__(self, lane: int, 
+                 position: int, 
+                 speed: int=0, 
+                 vmax: int=4):
         self.lane = lane
         self.position = position
         self.speed = speed
@@ -26,9 +30,15 @@ class Car:
 
 
 class Road2D:
-    def __init__(self, road_length: int, num_cars: int, lanes: int = 2, vmax: int = 4, p: float = 0.3,
-                 allow_lane_change=True, lane_directions: list[int] = None, traffic_lights=None,
-                 cell_length: float = 7.5):
+    def __init__(self, road_length: int, 
+                 num_cars: int, 
+                 lanes: int=2, 
+                 vmax: int=4, 
+                 p: float=0.2,
+                 allow_lane_change: bool=True, 
+                 lane_directions: list[int]=None, 
+                 traffic_lights=None,
+                 cell_length: float=7.5):
         self.length = road_length  # в ячейках
         self.cell_length = cell_length  # длина одной ячейки в метрах
         self.lanes = lanes
@@ -176,6 +186,39 @@ class TrafficLight:
         return self.state == 'green'
 
 
+def get_average_speed_with_densities(densities, 
+                                     steps: int=200, 
+                                     road_length: int=300, 
+                                     vmax: int=4, 
+                                     p: float=0.2,
+                                     cell_length: float=7.5, 
+                                     lanes: int=2, 
+                                     lane_directions: list[int]=None,
+                                     lane_changing: bool=False,
+                                     traffic_light: bool=False):
+    avg_speeds_with = []
+    avg_speeds_without = []
+
+    for density in densities:
+        num_cars = int(density * road_length * cell_length / 1000)
+        
+        if lane_changing:
+            road_with = Road2D(road_length, num_cars, lanes, vmax, p)
+            road_without = Road2D(road_length, num_cars, lanes, vmax, p, allow_lane_change=False)
+        elif traffic_light:
+            traffic_lights = [TrafficLight(traffic_light_position, light_cycle)]
+            road_with = Road2D(road_length, num_cars, lanes, vmax, p, traffic_lights=traffic_lights)
+            road_without = Road2D(road_length, num_cars, lanes, vmax, p)
+            
+        avg_speed = np.mean([road_with.update() or road_with.get_average_speed_kmh() for _ in range(steps)])
+        avg_speeds_with.append(avg_speed)
+            
+        avg_speed = np.mean([road_without.update() or road_without.get_average_speed_kmh() for _ in range(steps)])
+        avg_speeds_without.append(avg_speed)
+
+    return avg_speeds_with, avg_speeds_without
+
+
 steps = 100
 road_length = 300
 num_cars = 20
@@ -185,11 +228,76 @@ vmax = 4
 p = 0.2
 cell_length = 7.5
 
+vmax_kmh = int(vmax * cell_length * 3.6)
+road_length_km = road_length * cell_length / 1000
+
+filename_lane_changing = "compare_with_without_lane_changing_2D.png"
+filename_traffic_light = "compare_with_without_traffic_lights_2D.png"
+
+""" Моделирование реального участка Каширского шоссе """
+orig_coord = (55.611202, 37.717325)  # начало участка дороги (широта, долгота)
+dest_coord = (55.618883, 37.713511)  # конец участка
+
+G, road_data = get_characteristics_of_path_between_coords(orig_coord, dest_coord)
+
+if (road_data):
+    # Переводим длину дороги в количество ячеек
+    road_length = int(road_data['length_m'] / cell_length)
+    road_length_km = road_data['length_m'] / 1000
+    lanes = road_data['lanes']
+    # Переводим максимальную скорость машины (в ячейках за шаг)
+    vmax = int((road_data['speed_limit_kph'] / 3.6) / cell_length)
+    vmax_kmh = int(road_data['speed_limit_kph'])
+    
+    filename_lane_changing = "compare_with_without_lane_changing_real_2D.png"
+    filename_traffic_light = "compare_with_without_traffic_lights_real_2D.png"
+
+extra_info={
+    "Макс. скорость": f"{vmax_kmh} км/ч",
+    "Длина дороги": f"{road_length_km:.2f} км",
+    }
+
 traffic_light_position = road_length // 2
 light_cycle = [30, 30]
 
+densities = np.linspace(3, 200, 20)
 
-road_gif_1 = Road2D(road_length, num_cars, lanes, vmax, p)
+# Сравнение с и без перестроения (но без светофора)
+avg_speeds_with_lane_changing, avg_speeds_without_lane_changing = get_average_speed_with_densities(densities, 
+                                                                                 steps, 
+                                                                                 road_length, 
+                                                                                 vmax, 
+                                                                                 cell_length=cell_length, 
+                                                                                 lanes=lanes,
+                                                                                 lane_changing=True)
+
+labels_lane_changing = ['С перестроением', 'Без перестроения', "Сравнение трафика с возможностью перестроения и без"]
+compare_effect(densities, 
+               avg_speeds_with_lane_changing, 
+               avg_speeds_without_lane_changing, 
+               labels_lane_changing, 
+               filename=filename_lane_changing, 
+               extra_info=extra_info)
+
+# Сравнение с и без светофора (но с перестроением)
+avg_speeds_with_light, avg_speeds_without_light = get_average_speed_with_densities(densities, 
+                                                                                 steps, 
+                                                                                 road_length, 
+                                                                                 vmax, 
+                                                                                 cell_length=cell_length, 
+                                                                                 lanes=lanes,
+                                                                                 traffic_light=True)
+
+labels_traffic_light = ['С светофором', 'Без светофора', "Сравнение трафика с светофором и без"]
+compare_effect(densities, 
+               avg_speeds_with_light, 
+               avg_speeds_without_light, 
+               labels_traffic_light, 
+               filename=filename_traffic_light,
+               extra_info=extra_info)
+
+
+"""road_gif_1 = Road2D(road_length, num_cars, lanes, vmax, p)
 create_gif(road_gif_1, filename='traffic_simulation_without_traffic_lights_2D.gif', frames=steps)
 
 road_gif_2 = Road2D(road_length, num_cars, lanes=4, vmax=vmax, p=p, lane_directions=lane_directions)
@@ -225,53 +333,4 @@ for p in ps:
         avg_speeds.append(total_speed / steps)
     results[p] = avg_speeds
 
-plot_average_speed_density(densities, results)
-
-
-# Сравнение с и без перестроения (но без светофора)
-avg_speeds_with = []
-avg_speeds_without = []
-
-for density in densities:
-    num_cars = int(density * road_length * cell_length / 1000)
-
-    road_with_lane_changing = Road2D(road_length, num_cars, lanes, vmax, p)
-    avg_speed = np.mean([road_with_lane_changing.update() or road_with_lane_changing.get_average_speed_kmh() for _ in range(steps)])
-    avg_speeds_with.append(avg_speed)
-
-    road_without_lane_changing = Road2D(road_length, num_cars, lanes, vmax, p, allow_lane_change=False)
-    avg_speed = np.mean([road_without_lane_changing.update() or road_without_lane_changing.get_average_speed_kmh() for _ in range(steps)])
-    avg_speeds_without.append(avg_speed)
-    
-vmax_kmh = int(vmax * cell_length * 3.6)
-road_length_km = int(road_length * cell_length / 1000)
-extra_info={
-    "Макс. скорость": f"{vmax_kmh} км/ч",
-    "Длина дороги": f"{road_length_km} км",
-    }
-
-labels_lane_changing = ['С перестроением', 'Без перестроения', "Сравнение трафика с возможностью перестроения и без"]
-compare_effect(densities, avg_speeds_with, avg_speeds_without, labels_lane_changing, 
-               "compare_lane_changing_2D.png", extra_info=extra_info)
-
-
-# Сравнение с и без светофора (но с перестроением)
-avg_speeds_with_light = []
-avg_speeds_without_light = []
-
-for density in densities:
-    num_cars = int(density * road_length * cell_length / 1000)
-    
-    traffic_lights_for_lights = [TrafficLight(traffic_light_position, light_cycle)]
-    road_with_traffic_lights = Road2D(road_length, num_cars, lanes, vmax, p, traffic_lights=traffic_lights_for_lights)
-    avg_speed = np.mean([road_with_traffic_lights.update() or road_with_traffic_lights.get_average_speed_kmh() for _ in range(steps)])
-    avg_speeds_with_light.append(avg_speed)
-
-    road_without_traffic_lights = Road2D(road_length, num_cars, lanes, vmax, p)
-    avg_speed = np.mean([road_without_traffic_lights.update() or road_without_traffic_lights.get_average_speed_kmh() for _ in range(steps)])
-    avg_speeds_without_light.append(avg_speed)
-
-labels_traffic_light = ['С светофором', 'Без светофора', "Сравнение трафика с светофором и без"]
-compare_effect(densities, avg_speeds_with_light, avg_speeds_without_light, 
-               labels_traffic_light, "compare_with_wthout_traffic_lights_2D.png",
-               extra_info=extra_info)
+plot_average_speed_density(densities, results)"""
